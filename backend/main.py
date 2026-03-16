@@ -166,6 +166,11 @@ app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
 app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
 
 
+@app.get("/favicon.svg")
+async def favicon():
+    return FileResponse("frontend/favicon.svg", media_type="image/svg+xml")
+
+
 @app.get("/")
 async def index():
     return FileResponse("frontend/index.html")
