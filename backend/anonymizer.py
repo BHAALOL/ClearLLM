@@ -1,82 +1,24 @@
-import uuid
-import time
-import threading
 import logging
-from typing import Optional
 
 from presidio_analyzer import AnalyzerEngine, RecognizerResult, Pattern, PatternRecognizer
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 
-from backend.config import settings
 from backend.models import (
     DetectedEntity,
     AnonymizedEntity,
     AnonymizeResponse,
     AnalyzeResponse,
+    EntityOverride,
 )
 
 logger = logging.getLogger("clearllm")
-
-
-class _SessionStore:
-    """In-memory session store with TTL. No data hits disk."""
-
-    def __init__(self, ttl_minutes: int = 30, max_sessions: int = 1000):
-        self._store: dict[str, dict] = {}
-        self._ttl = ttl_minutes * 60
-        self._max = max_sessions
-        self._lock = threading.Lock()
-
-    def create(self, mapping: dict[str, str]) -> str:
-        self._cleanup()
-        session_id = uuid.uuid4().hex
-        with self._lock:
-            if len(self._store) >= self._max:
-                self._evict_oldest()
-            self._store[session_id] = {
-                "mapping": mapping,
-                "created_at": time.time(),
-            }
-        return session_id
-
-    def get(self, session_id: str) -> Optional[dict[str, str]]:
-        with self._lock:
-            entry = self._store.get(session_id)
-            if entry is None:
-                return None
-            if time.time() - entry["created_at"] > self._ttl:
-                del self._store[session_id]
-                return None
-            return entry["mapping"]
-
-    def delete(self, session_id: str) -> None:
-        with self._lock:
-            self._store.pop(session_id, None)
-
-    def _cleanup(self) -> None:
-        now = time.time()
-        with self._lock:
-            expired = [
-                sid
-                for sid, entry in self._store.items()
-                if now - entry["created_at"] > self._ttl
-            ]
-            for sid in expired:
-                del self._store[sid]
-
-    def _evict_oldest(self) -> None:
-        if not self._store:
-            return
-        oldest = min(self._store, key=lambda k: self._store[k]["created_at"])
-        del self._store[oldest]
 
 
 def _build_french_recognizers() -> list[PatternRecognizer]:
     """Custom recognizers for French-specific PII patterns."""
     recognizers = []
 
-    # French phone numbers: 01-07, 09 with various separators
     fr_phone = PatternRecognizer(
         supported_entity="PHONE_NUMBER",
         supported_language="fr",
@@ -106,7 +48,6 @@ def _build_french_recognizers() -> list[PatternRecognizer]:
     )
     recognizers.append(fr_phone)
 
-    # French Social Security Number (NIR): 1 or 2 + 13 digits
     fr_ssn = PatternRecognizer(
         supported_entity="FR_SSN",
         supported_language="fr",
@@ -121,7 +62,6 @@ def _build_french_recognizers() -> list[PatternRecognizer]:
     )
     recognizers.append(fr_ssn)
 
-    # French IBAN
     fr_iban = PatternRecognizer(
         supported_entity="IBAN_CODE",
         supported_language="fr",
@@ -140,7 +80,11 @@ def _build_french_recognizers() -> list[PatternRecognizer]:
 
 
 class PresidioService:
-    """Presidio-based PII detection and anonymization service."""
+    """Presidio-based PII detection and anonymization service.
+
+    Stateless: no PII is stored server-side. The mapping is returned
+    to the client which handles encryption and storage.
+    """
 
     def __init__(self):
         logger.info("Initializing Presidio engines...")
@@ -161,16 +105,10 @@ class PresidioService:
             supported_languages=["en", "fr"],
         )
 
-        # Register French-specific recognizers
         for recognizer in _build_french_recognizers():
             self.analyzer.registry.add_recognizer(recognizer)
 
         self.anonymizer_engine = AnonymizerEngine()
-        self.sessions = _SessionStore(
-            ttl_minutes=settings.session_ttl_minutes,
-            max_sessions=settings.max_sessions,
-        )
-
         logger.info("Presidio engines ready.")
 
     def analyze(self, text: str, language: str = "fr") -> AnalyzeResponse:
@@ -193,19 +131,36 @@ class PresidioService:
         ]
         return AnalyzeResponse(entities=entities)
 
-    def anonymize(self, text: str, language: str = "fr") -> AnonymizeResponse:
-        results = self.analyzer.analyze(
-            text=text,
-            language=language,
-            score_threshold=0.4,
-        )
+    def anonymize(
+        self,
+        text: str,
+        language: str = "fr",
+        custom_entities: list[EntityOverride] | None = None,
+    ) -> AnonymizeResponse:
+        if custom_entities is not None:
+            results = [
+                RecognizerResult(
+                    entity_type=e.entity_type,
+                    start=e.start,
+                    end=e.end,
+                    score=e.score,
+                )
+                for e in custom_entities
+            ]
+        else:
+            results = self.analyzer.analyze(
+                text=text,
+                language=language,
+                score_threshold=0.4,
+            )
+
         results = self._remove_overlaps(results)
 
         # First pass: assign placeholders in text order
         sorted_asc = sorted(results, key=lambda r: r.start)
         type_counters: dict[str, int] = {}
-        reverse_mapping: dict[str, str] = {}  # original_text -> placeholder
-        mapping: dict[str, str] = {}  # placeholder -> original_text
+        reverse_mapping: dict[str, str] = {}
+        mapping: dict[str, str] = {}
         entities: list[AnonymizedEntity] = []
 
         for r in sorted_asc:
@@ -243,27 +198,11 @@ class PresidioService:
                 seen.add(key)
                 unique_entities.append(e)
 
-        session_id = self.sessions.create(mapping)
-
         return AnonymizeResponse(
-            session_id=session_id,
             anonymized_text=anonymized_text,
             entities=unique_entities,
+            mapping=mapping,
         )
-
-    def deanonymize(self, session_id: str, text: str) -> str:
-        mapping = self.sessions.get(session_id)
-        if mapping is None:
-            raise ValueError("Session expirée ou introuvable.")
-
-        result = text
-        # Sort by placeholder length descending to avoid partial replacements
-        for placeholder in sorted(mapping.keys(), key=len, reverse=True):
-            result = result.replace(placeholder, mapping[placeholder])
-        return result
-
-    def delete_session(self, session_id: str) -> None:
-        self.sessions.delete(session_id)
 
     @staticmethod
     def _remove_overlaps(

@@ -18,9 +18,17 @@ class AnalyzeResponse(BaseModel):
     entities: list[DetectedEntity]
 
 
+class EntityOverride(BaseModel):
+    entity_type: str
+    start: int
+    end: int
+    score: float = 1.0
+
+
 class AnonymizeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=50000)
     language: str = Field(default="fr", pattern="^(fr|en)$")
+    entities: list[EntityOverride] | None = None
 
 
 class AnonymizedEntity(BaseModel):
@@ -31,9 +39,9 @@ class AnonymizedEntity(BaseModel):
 
 
 class AnonymizeResponse(BaseModel):
-    session_id: str
     anonymized_text: str
     entities: list[AnonymizedEntity]
+    mapping: dict[str, str]
 
 
 class DeanonymizeRequest(BaseModel):

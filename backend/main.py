@@ -13,8 +13,6 @@ from backend.models import (
     AnalyzeResponse,
     AnonymizeRequest,
     AnonymizeResponse,
-    DeanonymizeRequest,
-    DeanonymizeResponse,
 )
 from backend.anonymizer import PresidioService
 
@@ -33,7 +31,7 @@ logger = logging.getLogger("clearllm")
 app = FastAPI(
     title="ClearLLM",
     description="Anonymisation de messages avant envoi aux LLM",
-    version="1.0.0",
+    version="2.0.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -50,7 +48,7 @@ origins = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
     allow_credentials=False,
 )
@@ -98,12 +96,11 @@ async def rate_limit(request: Request, call_next):
         now = time.time()
         window = 60.0
         hits = _rate_store[client_ip]
-        # Trim old entries
         _rate_store[client_ip] = [t for t in hits if now - t < window]
         if len(_rate_store[client_ip]) >= settings.rate_limit_per_minute:
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Trop de requêtes. Réessayez dans un instant."},
+                content={"detail": "Trop de requetes. Reessayez dans un instant."},
             )
         _rate_store[client_ip].append(now)
     return await call_next(request)
@@ -141,22 +138,11 @@ async def analyze(req: AnalyzeRequest):
 async def anonymize(req: AnonymizeRequest):
     if len(req.text) > settings.max_text_length:
         raise HTTPException(status_code=413, detail="Texte trop long.")
-    return presidio.anonymize(text=req.text, language=req.language)
-
-
-@app.post("/api/deanonymize", response_model=DeanonymizeResponse)
-async def deanonymize(req: DeanonymizeRequest):
-    try:
-        result = presidio.deanonymize(session_id=req.session_id, text=req.text)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    return DeanonymizeResponse(deanonymized_text=result)
-
-
-@app.delete("/api/session/{session_id}")
-async def delete_session(session_id: str):
-    presidio.delete_session(session_id)
-    return {"status": "deleted"}
+    return presidio.anonymize(
+        text=req.text,
+        language=req.language,
+        custom_entities=req.entities,
+    )
 
 
 # ---------------------------------------------------------------------------
