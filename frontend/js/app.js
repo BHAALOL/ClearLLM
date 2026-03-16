@@ -18,19 +18,21 @@
     const btnDeanonymize = $("#btnDeanonymize");
     const btnCopyDeanon = $("#btnCopyDeanon");
     const btnDeleteSession = $("#btnDeleteSession");
-    const btnSettings = $("#btnSettings");
-    const btnCloseSettings = $("#btnCloseSettings");
-    const settingsPanel = $("#settingsPanel");
+    const btnSidebarToggle = $("#btnSidebarToggle");
+    const sidebar = $(".sidebar");
     const langSelect = $("#langSelect");
     const loader = $("#loader");
-    const resultsSection = $("#resultsSection");
-    const deanonSection = $("#deanonSection");
-    const entitiesList = $("#entitiesList");
+    const emptyState1 = $("#emptyState1");
+    const emptyState2 = $("#emptyState2");
     const anonymizedText = $("#anonymizedText");
+    const resultFooter = $("#resultFooter");
+    const entitiesSection = $("#entitiesSection");
+    const entitiesList = $("#entitiesList");
+    const deanonRow = $("#deanonRow");
+    const divider = $("#divider");
     const llmResponse = $("#llmResponse");
     const deanonymizedText = $("#deanonymizedText");
-    const deanonResult = $("#deanonResult");
-    const deanonActions = $("#deanonActions");
+    const deanonFooter = $("#deanonFooter");
     const sessionBadge = $("#sessionBadge");
 
     // ---- Helpers ----
@@ -67,12 +69,14 @@
     function updateSessionBadge(active) {
         if (active) {
             sessionBadge.innerHTML =
-                '<span class="dot dot-active"></span>Session active';
+                '<span class="dot dot-active"></span><span>Session active</span>';
             sessionBadge.title = `Session: ${currentSessionId}`;
+            btnDeleteSession.style.display = "flex";
         } else {
             sessionBadge.innerHTML =
-                '<span class="dot dot-inactive"></span>Aucune session';
+                '<span class="dot dot-inactive"></span><span>Aucune session</span>';
             sessionBadge.title = "Aucune session active";
+            btnDeleteSession.style.display = "none";
         }
     }
 
@@ -101,33 +105,55 @@
 
     function setLoading(on) {
         loader.classList.toggle("visible", on);
+        if (on) {
+            emptyState1.style.display = "none";
+            anonymizedText.style.display = "none";
+        }
         btnAnonymize.disabled = on;
     }
+
+    // ---- Sidebar toggle (mobile) ----
+    btnSidebarToggle.addEventListener("click", () => {
+        sidebar.classList.toggle("open");
+        // Manage overlay
+        let overlay = $(".sidebar-overlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.className = "sidebar-overlay";
+            document.body.appendChild(overlay);
+            overlay.addEventListener("click", () => {
+                sidebar.classList.remove("open");
+                overlay.classList.remove("active");
+            });
+        }
+        overlay.classList.toggle("active", sidebar.classList.contains("open"));
+    });
 
     // ---- Character count ----
     inputText.addEventListener("input", () => {
         const len = inputText.value.length;
-        charCount.textContent = `${len.toLocaleString("fr-FR")} caractère${len !== 1 ? "s" : ""}`;
-    });
-
-    // ---- Settings ----
-    btnSettings.addEventListener("click", () => {
-        settingsPanel.classList.toggle("open");
-    });
-
-    btnCloseSettings.addEventListener("click", () => {
-        settingsPanel.classList.remove("open");
+        charCount.textContent = `${len.toLocaleString("fr-FR")} caractere${len !== 1 ? "s" : ""}`;
     });
 
     // ---- Clear ----
     btnClear.addEventListener("click", () => {
         inputText.value = "";
-        charCount.textContent = "0 caractères";
-        resultsSection.style.display = "none";
-        deanonSection.style.display = "none";
-        deanonResult.style.display = "none";
-        deanonActions.style.display = "none";
+        charCount.textContent = "0 caracteres";
+        // Reset right panel
+        anonymizedText.style.display = "none";
+        resultFooter.style.display = "none";
+        emptyState1.style.display = "flex";
+        // Reset entities
+        entitiesSection.style.display = "none";
+        entitiesList.innerHTML = "";
+        // Reset deanon row
+        deanonRow.style.display = "none";
+        divider.style.display = "none";
+        deanonymizedText.style.display = "none";
+        deanonFooter.style.display = "none";
+        emptyState2.style.display = "flex";
         llmResponse.value = "";
+        // Reset session
         currentSessionId = null;
         updateSessionBadge(false);
     });
@@ -141,8 +167,7 @@
         }
 
         setLoading(true);
-        resultsSection.style.display = "none";
-        deanonSection.style.display = "none";
+        resultFooter.style.display = "none";
 
         try {
             const data = await api("anonymize", {
@@ -153,32 +178,42 @@
             currentSessionId = data.session_id;
             updateSessionBadge(true);
 
-            // Render entities
+            // Render entities in sidebar
             entitiesList.innerHTML = "";
             if (data.entities.length === 0) {
+                entitiesSection.style.display = "block";
                 entitiesList.innerHTML =
-                    '<span style="color:var(--text-muted);font-size:0.85rem;">Aucune donnée personnelle détectée.</span>';
+                    '<span class="text-muted" style="font-size:0.78rem;">Aucune donnee personnelle detectee.</span>';
             } else {
+                entitiesSection.style.display = "block";
                 data.entities.forEach((e) => {
-                    const tag = document.createElement("span");
+                    const tag = document.createElement("div");
                     tag.className = `entity-tag ${getEntityClass(e.entity_type)}`;
-                    tag.innerHTML = `<span class="entity-type">${escapeHtml(e.entity_type)}</span> <span class="entity-arrow">\u2192</span> ${escapeHtml(e.anonymized)}`;
+                    tag.innerHTML =
+                        `<span class="entity-type">${escapeHtml(e.entity_type)}</span>` +
+                        `<span class="entity-arrow">\u2192</span>` +
+                        `<span class="entity-value">${escapeHtml(e.anonymized)}</span>`;
                     tag.title = `Original: "${e.original}" (score: ${e.score})`;
                     entitiesList.appendChild(tag);
                 });
             }
 
-            // Render anonymized text
+            // Show anonymized result
             anonymizedText.innerHTML = highlightPlaceholders(data.anonymized_text);
+            anonymizedText.style.display = "block";
+            anonymizedText.classList.add("fade-in");
+            emptyState1.style.display = "none";
+            resultFooter.style.display = "flex";
 
-            resultsSection.style.display = "block";
-            deanonSection.style.display = "block";
-            deanonResult.style.display = "none";
-            deanonActions.style.display = "none";
-
-            resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+            // Show deanon section
+            divider.style.display = "flex";
+            deanonRow.style.display = "grid";
+            deanonymizedText.style.display = "none";
+            deanonFooter.style.display = "none";
+            emptyState2.style.display = "flex";
         } catch (err) {
             toast(err.message, "error");
+            emptyState1.style.display = "flex";
         } finally {
             setLoading(false);
         }
@@ -188,7 +223,7 @@
     btnCopy.addEventListener("click", () => {
         const text = anonymizedText.textContent;
         navigator.clipboard.writeText(text).then(
-            () => toast("Message anonymisé copié !"),
+            () => toast("Message anonymise copie !"),
             () => toast("Erreur lors de la copie.", "error")
         );
     });
@@ -197,7 +232,7 @@
     btnDeanonymize.addEventListener("click", async () => {
         const text = llmResponse.value.trim();
         if (!text) {
-            toast("Veuillez coller la réponse du LLM.", "error");
+            toast("Veuillez coller la reponse du LLM.", "error");
             return;
         }
         if (!currentSessionId) {
@@ -214,9 +249,10 @@
             });
 
             deanonymizedText.textContent = data.deanonymized_text;
-            deanonResult.style.display = "block";
-            deanonActions.style.display = "flex";
-            deanonResult.scrollIntoView({ behavior: "smooth", block: "start" });
+            deanonymizedText.style.display = "block";
+            deanonymizedText.classList.add("fade-in");
+            emptyState2.style.display = "none";
+            deanonFooter.style.display = "flex";
         } catch (err) {
             toast(err.message, "error");
         } finally {
@@ -228,7 +264,7 @@
     btnCopyDeanon.addEventListener("click", () => {
         const text = deanonymizedText.textContent;
         navigator.clipboard.writeText(text).then(
-            () => toast("Réponse restaurée copiée !"),
+            () => toast("Reponse restauree copiee !"),
             () => toast("Erreur lors de la copie.", "error")
         );
     });
@@ -240,9 +276,9 @@
             await apiDelete(`session/${currentSessionId}`);
             currentSessionId = null;
             updateSessionBadge(false);
-            deanonResult.style.display = "none";
-            deanonActions.style.display = "none";
-            toast("Session supprimée. Les mappings sont effacés.");
+            entitiesSection.style.display = "none";
+            entitiesList.innerHTML = "";
+            toast("Session supprimee. Les mappings sont effaces.");
         } catch (err) {
             toast(err.message, "error");
         }
