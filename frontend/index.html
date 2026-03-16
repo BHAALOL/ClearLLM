@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ClearLLM — Anonymisez vos messages avant de les envoyer aux LLM">
+    <meta name="robots" content="noindex, nofollow">
+    <title>ClearLLM — Anonymisation pour LLM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-brand">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <h1>ClearLLM</h1>
+        </div>
+        <div class="header-meta">
+            <span class="session-badge" id="sessionBadge" title="Aucune session active">
+                <span class="dot dot-inactive"></span>
+                Aucune session
+            </span>
+            <button class="btn btn-ghost btn-sm" id="btnSettings" title="Paramètres">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Settings panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-inner">
+            <h3>Paramètres</h3>
+            <div class="setting-row">
+                <label for="langSelect">Langue d'analyse</label>
+                <select id="langSelect" class="select">
+                    <option value="fr" selected>Français</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <div class="setting-info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/>
+                </svg>
+                <span>Toutes les données sont traitées en mémoire uniquement. Rien n'est stocké sur disque. Les sessions expirent automatiquement après 30 minutes.</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="btnCloseSettings">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <main class="main">
+        <!-- Step 1: Input -->
+        <section class="card">
+            <div class="card-header">
+                <span class="step-number">1</span>
+                <h2>Votre message</h2>
+            </div>
+            <div class="card-body">
+                <textarea
+                    id="inputText"
+                    class="textarea"
+                    placeholder="Collez ou tapez votre message ici. Les données personnelles seront détectées et anonymisées automatiquement..."
+                    rows="8"
+                    spellcheck="false"
+                ></textarea>
+                <div class="card-actions">
+                    <span class="char-count" id="charCount">0 caractères</span>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" id="btnClear">Effacer</button>
+                        <button class="btn btn-primary" id="btnAnonymize">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            Analyser &amp; Anonymiser
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <span>Analyse en cours...</span>
+        </div>
+
+        <!-- Step 2: Results -->
+        <section class="card card-results" id="resultsSection" style="display:none;">
+            <div class="card-header">
+                <span class="step-number">2</span>
+                <h2>Résultat de l'anonymisation</h2>
+            </div>
+            <div class="card-body">
+                <!-- Detected entities -->
+                <div class="entities-list" id="entitiesList"></div>
+
+                <!-- Anonymized text -->
+                <div class="result-box">
+                    <div class="result-label">Message anonymisé</div>
+                    <div class="result-text" id="anonymizedText"></div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn btn-secondary" id="btnCopy">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        Copier le message anonymisé
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: De-anonymize -->
+        <section class="card card-deanon" id="deanonSection" style="display:none;">
+            <div class="card-header">
+                <span class="step-number">3</span>
+                <h2>Dé-anonymiser la réponse du LLM</h2>
+            </div>
+            <div class="card-body">
+                <textarea
+                    id="llmResponse"
+                    class="textarea"
+                    placeholder="Collez ici la réponse du LLM contenant les placeholders (<PERSON_1>, <EMAIL_ADDRESS_1>, etc.)..."
+                    rows="6"
+                    spellcheck="false"
+                ></textarea>
+                <div class="card-actions">
+                    <button class="btn btn-primary" id="btnDeanonymize">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                        Dé-anonymiser
+                    </button>
+                </div>
+
+                <!-- De-anonymized result -->
+                <div class="result-box" id="deanonResult" style="display:none;">
+                    <div class="result-label">Réponse restaurée</div>
+                    <div class="result-text" id="deanonymizedText"></div>
+                </div>
+                <div class="card-actions" id="deanonActions" style="display:none;">
+                    <button class="btn btn-secondary" id="btnCopyDeanon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        Copier la réponse restaurée
+                    </button>
+                    <button class="btn btn-danger btn-sm" id="btnDeleteSession">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Supprimer la session
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-security">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <span>Traitement en mémoire uniquement — Aucune donnée stockée — Sessions éphémères</span>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
