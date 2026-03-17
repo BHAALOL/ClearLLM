@@ -99,7 +99,8 @@
 
     function getEntityClass(type) {
         const known = ["PERSON","EMAIL_ADDRESS","PHONE_NUMBER","LOCATION","CREDIT_CARD",
-            "DATE_TIME","IBAN_CODE","IP_ADDRESS","URL","FR_SSN","NRP"];
+            "DATE_TIME","IBAN_CODE","IP_ADDRESS","URL","FR_SSN","NRP",
+            "HOSTNAME","LINUX_USER","MAC_ADDRESS","UUID"];
         return known.includes(type) ? type : "default";
     }
 

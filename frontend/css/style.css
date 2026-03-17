@@ -212,6 +212,10 @@ body {
 .entity-URL             { color: #818cf8; border-color: #818cf833; background: #818cf80a; }
 .entity-FR_SSN          { color: #f87171; border-color: #f8717133; background: #f871710a; }
 .entity-NRP             { color: #2dd4bf; border-color: #2dd4bf33; background: #2dd4bf0a; }
+.entity-HOSTNAME        { color: #e879f9; border-color: #e879f933; background: #e879f90a; }
+.entity-LINUX_USER      { color: #4ade80; border-color: #4ade8033; background: #4ade800a; }
+.entity-MAC_ADDRESS     { color: #f59e0b; border-color: #f59e0b33; background: #f59e0b0a; }
+.entity-UUID            { color: #64748b; border-color: #64748b33; background: #64748b0a; }
 .entity-default         { color: #94a3b8; border-color: #94a3b833; background: #94a3b80a; }
 
 /* Highlight colors for preview */
@@ -226,6 +230,10 @@ body {
 .hl-URL             { background: #818cf825; border-bottom: 2px solid #818cf8; }
 .hl-FR_SSN          { background: #f8717125; border-bottom: 2px solid #f87171; }
 .hl-NRP             { background: #2dd4bf25; border-bottom: 2px solid #2dd4bf; }
+.hl-HOSTNAME        { background: #e879f925; border-bottom: 2px solid #e879f9; }
+.hl-LINUX_USER      { background: #4ade8025; border-bottom: 2px solid #4ade80; }
+.hl-MAC_ADDRESS     { background: #f59e0b25; border-bottom: 2px solid #f59e0b; }
+.hl-UUID            { background: #64748b25; border-bottom: 2px solid #64748b; }
 .hl-default         { background: #94a3b825; border-bottom: 2px solid #94a3b8; }
 
 mark.hl { padding: 0.05rem 0.15rem; border-radius: 2px; color: inherit; }

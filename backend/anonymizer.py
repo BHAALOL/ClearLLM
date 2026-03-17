@@ -79,6 +79,103 @@ def _build_french_recognizers() -> list[PatternRecognizer]:
     return recognizers
 
 
+def _build_linux_log_recognizers() -> list[PatternRecognizer]:
+    """Recognizers for common patterns found in Linux system logs (syslog, journald, auth.log...)."""
+    recognizers = []
+
+    for lang in ("fr", "en"):
+        # MAC address: aa:bb:cc:dd:ee:ff or aa-bb-cc-dd-ee-ff
+        recognizers.append(PatternRecognizer(
+            supported_entity="MAC_ADDRESS",
+            supported_language=lang,
+            name=f"MacAddressRecognizer_{lang}",
+            patterns=[
+                Pattern(
+                    name="mac_colon",
+                    regex=r"\b([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b",
+                    score=0.95,
+                ),
+                Pattern(
+                    name="mac_dash",
+                    regex=r"\b([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}\b",
+                    score=0.9,
+                ),
+            ],
+        ))
+
+        # UUID: 550e8400-e29b-41d4-a716-446655440000
+        recognizers.append(PatternRecognizer(
+            supported_entity="UUID",
+            supported_language=lang,
+            name=f"UUIDRecognizer_{lang}",
+            patterns=[
+                Pattern(
+                    name="uuid_standard",
+                    regex=r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+                    score=0.95,
+                ),
+            ],
+        ))
+
+        # Hostname in syslog/rsyslog format: "MMM DD HH:MM:SS hostname process[pid]:"
+        # The lookbehind on HH:MM:SS is fixed-width (9 chars) — compatible with Python re.
+        recognizers.append(PatternRecognizer(
+            supported_entity="HOSTNAME",
+            supported_language=lang,
+            name=f"SyslogHostnameRecognizer_{lang}",
+            patterns=[
+                Pattern(
+                    name="syslog_hostname",
+                    regex=r"(?<=\d{2}:\d{2}:\d{2} )[a-zA-Z0-9][a-zA-Z0-9\-\.]{2,62}(?= \S+[\[:])",
+                    score=0.75,
+                ),
+            ],
+        ))
+
+        # Linux username in common log contexts (sshd, sudo, su, PAM, useradd...)
+        recognizers.append(PatternRecognizer(
+            supported_entity="LINUX_USER",
+            supported_language=lang,
+            name=f"LinuxUserRecognizer_{lang}",
+            patterns=[
+                Pattern(
+                    name="user_keyword",
+                    # "for user john", "for john" after sshd/pam lines
+                    regex=r"(?<=for user )[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}\b",
+                    score=0.85,
+                ),
+                Pattern(
+                    name="sshd_password",
+                    regex=r"(?<=password for )[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}\b",
+                    score=0.85,
+                ),
+                Pattern(
+                    name="sudo_user",
+                    # "sudo: alice :" — the space+colon delimiter is characteristic
+                    regex=r"(?<=sudo: )[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}(?= :)",
+                    score=0.9,
+                ),
+                Pattern(
+                    name="su_to_user",
+                    regex=r"(?<=su: \(to )[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}(?=\))",
+                    score=0.9,
+                ),
+                Pattern(
+                    name="useradd_name",
+                    regex=r"(?<=new user: name=)[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}\b",
+                    score=0.95,
+                ),
+                Pattern(
+                    name="pam_user",
+                    regex=r"(?<=PAM: user )[a-zA-Z][a-zA-Z0-9_\-\.]{0,31}\b",
+                    score=0.85,
+                ),
+            ],
+        ))
+
+    return recognizers
+
+
 class PresidioService:
     """Presidio-based PII detection and anonymization service.
 
@@ -106,6 +203,9 @@ class PresidioService:
         )
 
         for recognizer in _build_french_recognizers():
+            self.analyzer.registry.add_recognizer(recognizer)
+
+        for recognizer in _build_linux_log_recognizers():
             self.analyzer.registry.add_recognizer(recognizer)
 
         self.anonymizer_engine = AnonymizerEngine()
