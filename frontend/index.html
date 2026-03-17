@@ -45,6 +45,19 @@
                 </select>
             </div>
 
+            <!-- Live view toggle -->
+            <div class="sidebar-section">
+                <div class="sidebar-label">Vue en direct</div>
+                <label class="toggle-label">
+                    <input type="checkbox" id="liveViewToggle">
+                    <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                    </span>
+                    <span id="liveViewLabel">Desactivee</span>
+                </label>
+                <span class="toggle-hint">Recommande pour les longs logs</span>
+            </div>
+
             <!-- Entities -->
             <div class="sidebar-section" id="entitiesSection" style="display:none;">
                 <div class="sidebar-label">Entites detectees</div>
@@ -115,7 +128,7 @@
             </button>
             <div class="topbar-title">Anonymisation</div>
             <div class="topbar-hint" id="btnShortcuts2" style="cursor:pointer;" title="Voir tous les raccourcis">
-                <kbd>Ctrl</kbd> + <kbd>Entree</kbd> pour analyser
+                <kbd>Ctrl</kbd> + <kbd>Entree</kbd> pour anonymiser
             </div>
         </header>
 
@@ -135,7 +148,7 @@
                         </span>
                     </div>
                     <div class="panel-body panel-body-grow">
-                        <textarea id="inputText" class="textarea textarea-full" placeholder="Collez ou tapez votre message ici...&#10;&#10;La detection temps reel surlignera les donnees personnelles au fur et a mesure de la saisie." spellcheck="false"></textarea>
+                        <textarea id="inputText" class="textarea textarea-full" placeholder="Collez vos logs ou votre message ici...&#10;&#10;Cliquez sur Anonymiser pour detecter et remplacer les donnees personnelles (noms, emails, IPs, numeros de telephone...)." spellcheck="false"></textarea>
                     </div>
                     <div class="panel-footer">
                         <span class="char-count" id="charCount">0 caracteres</span>
@@ -164,7 +177,7 @@
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                             </svg>
                         </span>
-                        <h2 id="rightPanelTitle">Apercu en direct</h2>
+                        <h2 id="rightPanelTitle">Resultat</h2>
                     </div>
                     <div class="panel-body panel-body-grow">
                         <div class="loader" id="loader">
@@ -175,7 +188,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                             </svg>
-                            <span>Commencez a taper pour voir la detection en temps reel</span>
+                            <span id="emptyStateHint">Collez vos logs puis cliquez sur Anonymiser</span>
                         </div>
                         <!-- Live highlighted preview -->
                         <div class="result-text" id="highlightedPreview" style="display:none;"></div>

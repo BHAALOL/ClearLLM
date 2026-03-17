@@ -19,6 +19,7 @@
     let ttlInterval = null;
     let analyzeTimer = null;
     let isAnonymized = false;
+    let liveViewEnabled = false; // disabled by default — recommended for large logs
 
     // ---- DOM ----
     const $ = (s) => document.querySelector(s);
@@ -62,6 +63,9 @@
     const manualText       = $("#manualText");
     const manualType       = $("#manualType");
     const btnAddEntity     = $("#btnAddEntity");
+    const liveViewToggle   = $("#liveViewToggle");
+    const liveViewLabel    = $("#liveViewLabel");
+    const emptyStateHint   = $("#emptyStateHint");
 
     // ============================================================
     // HELPERS
@@ -299,6 +303,7 @@
     // ============================================================
     function scheduleAnalysis() {
         if (analyzeTimer) clearTimeout(analyzeTimer);
+        if (!liveViewEnabled) return; // live view disabled — analysis runs only on explicit click
         const text = inputText.value.trim();
         if (text.length < 15) {
             detectedEntities = [];
@@ -521,7 +526,7 @@
         highlightedPrev.style.display = "none";
         resultFooter.style.display = "none";
         emptyState1.style.display = "flex";
-        rightPanelTitle.textContent = "Apercu en direct";
+        rightPanelTitle.textContent = liveViewEnabled ? "Apercu en direct" : "Resultat";
         liveBadge.style.display = "none";
 
         deanonRow.style.display = "none";
@@ -544,7 +549,7 @@
         // Reset anonymized state when editing
         if (isAnonymized) {
             isAnonymized = false;
-            rightPanelTitle.textContent = "Apercu en direct";
+            rightPanelTitle.textContent = liveViewEnabled ? "Apercu en direct" : "Resultat";
             anonymizedText.style.display = "none";
             resultFooter.style.display = "none";
             // Also reset the deanon section since the mapping is now stale
@@ -559,6 +564,38 @@
 
         scheduleAnalysis();
     });
+
+    // ============================================================
+    // LIVE VIEW TOGGLE
+    // ============================================================
+    function setLiveView(enabled) {
+        liveViewEnabled = enabled;
+        liveViewToggle.checked = enabled;
+        liveViewLabel.textContent = enabled ? "Activee" : "Desactivee";
+        localStorage.setItem("clearllm_live", enabled ? "1" : "0");
+        if (emptyStateHint) {
+            emptyStateHint.textContent = enabled
+                ? "Commencez a taper pour voir la detection en temps reel"
+                : "Collez vos logs puis cliquez sur Anonymiser";
+        }
+        if (!enabled) {
+            // Clear any pending live analysis and hide the preview if not anonymized
+            if (analyzeTimer) { clearTimeout(analyzeTimer); analyzeTimer = null; }
+            liveBadge.style.display = "none";
+            if (!isAnonymized) {
+                highlightedPrev.style.display = "none";
+                emptyState1.style.display = "flex";
+                rightPanelTitle.textContent = "Resultat";
+            }
+        } else {
+            if (!isAnonymized) rightPanelTitle.textContent = "Apercu en direct";
+        }
+    }
+
+    liveViewToggle.addEventListener("change", () => setLiveView(liveViewToggle.checked));
+
+    // Init live view from localStorage (default: disabled)
+    setLiveView(localStorage.getItem("clearllm_live") === "1");
 
     // ============================================================
     // THEME TOGGLE (#14)
