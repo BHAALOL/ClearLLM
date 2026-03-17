@@ -211,7 +211,7 @@
 
         // Deduplicate for display
         const seen = new Set();
-        detectedEntities.forEach((e, idx) => {
+        detectedEntities.forEach((e) => {
             const key = `${e.entity_type}::${e.text}`;
             if (seen.has(key)) return;
             seen.add(key);
@@ -223,31 +223,35 @@
             cb.type = "checkbox";
             cb.className = "entity-check";
             cb.checked = e.enabled;
+
+            const typeSpan = document.createElement("span");
+            typeSpan.className = "entity-type";
+            typeSpan.textContent = e.entity_type;
+
+            const arrowSpan = document.createElement("span");
+            arrowSpan.className = "entity-arrow";
+            arrowSpan.textContent = "\u2192";
+
+            const valueSpan = document.createElement("span");
+            valueSpan.className = "entity-value";
+            valueSpan.title = e.text;
+            valueSpan.textContent = e.text;
+
+            tag.appendChild(cb);
+            tag.appendChild(typeSpan);
+            tag.appendChild(arrowSpan);
+            tag.appendChild(valueSpan);
+
             cb.addEventListener("change", () => {
-                // Toggle all with same text + type
                 detectedEntities.forEach((ent) => {
                     if (ent.entity_type === e.entity_type && ent.text === e.text) {
                         ent.enabled = cb.checked;
                     }
                 });
-                renderEntities();
-                renderHighlightedPreview();
+                tag.classList.toggle("disabled", !cb.checked);
+                if (!isAnonymized) renderHighlightedPreview();
             });
 
-            tag.appendChild(cb);
-            tag.innerHTML += `<span class="entity-type">${escapeHtml(e.entity_type)}</span>` +
-                `<span class="entity-arrow">\u2192</span>` +
-                `<span class="entity-value" title="${escapeHtml(e.text)}">${escapeHtml(e.text)}</span>`;
-            tag.querySelector(".entity-check").checked = e.enabled;
-            tag.querySelector(".entity-check").addEventListener("change", () => {
-                detectedEntities.forEach((ent) => {
-                    if (ent.entity_type === e.entity_type && ent.text === e.text) {
-                        ent.enabled = tag.querySelector(".entity-check").checked;
-                    }
-                });
-                tag.classList.toggle("disabled", !tag.querySelector(".entity-check").checked);
-                renderHighlightedPreview();
-            });
             entitiesList.appendChild(tag);
         });
     }
@@ -327,6 +331,8 @@
             if (!isAnonymized) renderHighlightedPreview();
         } catch (_) {
             // Silently fail on live analysis
+        } finally {
+            liveBadge.style.display = "none";
         }
     }
 
@@ -541,6 +547,14 @@
             rightPanelTitle.textContent = "Apercu en direct";
             anonymizedText.style.display = "none";
             resultFooter.style.display = "none";
+            // Also reset the deanon section since the mapping is now stale
+            divider.style.display = "none";
+            deanonRow.style.display = "none";
+            deanonymizedText.style.display = "none";
+            deanonFooter.style.display = "none";
+            llmResponse.value = "";
+            emptyState2.style.display = "flex";
+            endSession();
         }
 
         scheduleAnalysis();

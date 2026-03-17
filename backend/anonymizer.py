@@ -115,7 +115,7 @@ class PresidioService:
         results = self.analyzer.analyze(
             text=text,
             language=language,
-            score_threshold=0.4,
+            score_threshold=0.5,
         )
         results = self._remove_overlaps(results)
 
@@ -151,7 +151,7 @@ class PresidioService:
             results = self.analyzer.analyze(
                 text=text,
                 language=language,
-                score_threshold=0.4,
+                score_threshold=0.5,
             )
 
         results = self._remove_overlaps(results)
@@ -210,12 +210,13 @@ class PresidioService:
     ) -> list[RecognizerResult]:
         if not results:
             return []
-        sorted_results = sorted(results, key=lambda r: (r.start, -r.score))
-        filtered = [sorted_results[0]]
-        for current in sorted_results[1:]:
-            prev = filtered[-1]
-            if current.start >= prev.end:
-                filtered.append(current)
-            elif current.score > prev.score:
-                filtered[-1] = current
-        return filtered
+        # Greedy by score: pick highest-confidence entities first,
+        # skipping any that overlap an already-selected entity.
+        # This avoids the chain-replacement bug of the position-first approach
+        # where replacing A→B then B→C could silently drop A even when A∩C=∅.
+        sorted_by_score = sorted(results, key=lambda r: -r.score)
+        selected: list[RecognizerResult] = []
+        for r in sorted_by_score:
+            if not any(r.start < s.end and r.end > s.start for s in selected):
+                selected.append(r)
+        return sorted(selected, key=lambda r: r.start)
