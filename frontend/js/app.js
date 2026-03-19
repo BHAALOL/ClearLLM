@@ -387,7 +387,7 @@
 
         manualText.value = "";
         renderEntities();
-        renderHighlightedPreview();
+        if (!isAnonymized) renderHighlightedPreview();
         toast(`${added} occurrence${added > 1 ? "s" : ""} ajoutee${added > 1 ? "s" : ""}.`);
     }
 
@@ -550,9 +550,14 @@
         // Reset anonymized state when editing
         if (isAnonymized) {
             isAnonymized = false;
+            // Clear stale entities (positions are invalid after anonymization)
+            detectedEntities = [];
+            renderEntities();
             rightPanelTitle.textContent = liveViewEnabled ? "Apercu en direct" : "Resultat";
             anonymizedText.style.display = "none";
             resultFooter.style.display = "none";
+            highlightedPrev.style.display = "none";
+            emptyState1.style.display = "flex";
             // Also reset the deanon section since the mapping is now stale
             divider.style.display = "none";
             deanonRow.style.display = "none";
