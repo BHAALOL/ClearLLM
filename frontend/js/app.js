@@ -188,6 +188,7 @@
 
         if (remaining <= 0) {
             endSession();
+            resetResultUI();
             toast("Session expiree. Les donnees ont ete effacees.", "error");
         }
     }
@@ -387,7 +388,7 @@
 
         manualText.value = "";
         renderEntities();
-        renderHighlightedPreview();
+        if (!isAnonymized) renderHighlightedPreview();
         toast(`${added} occurrence${added > 1 ? "s" : ""} ajoutee${added > 1 ? "s" : ""}.`);
     }
 
@@ -513,30 +514,32 @@
 
     btnDeleteSession.addEventListener("click", () => {
         endSession();
+        resetResultUI();
         toast("Session supprimee. Cle et mappings effaces.");
     });
 
-    function resetAll() {
-        inputText.value = "";
-        charCount.textContent = "0 caracteres";
-        detectedEntities = [];
+    function resetResultUI() {
         isAnonymized = false;
+        detectedEntities = [];
         renderEntities();
-
         anonymizedText.style.display = "none";
         highlightedPrev.style.display = "none";
         resultFooter.style.display = "none";
         emptyState1.style.display = "flex";
         rightPanelTitle.textContent = liveViewEnabled ? "Apercu en direct" : "Resultat";
         liveBadge.style.display = "none";
-
-        deanonRow.style.display = "none";
         divider.style.display = "none";
+        deanonRow.style.display = "none";
         deanonymizedText.style.display = "none";
         deanonFooter.style.display = "none";
-        emptyState2.style.display = "flex";
         llmResponse.value = "";
+        emptyState2.style.display = "flex";
+    }
 
+    function resetAll() {
+        inputText.value = "";
+        charCount.textContent = "0 caracteres";
+        resetResultUI();
         endSession();
     }
 
@@ -549,17 +552,7 @@
 
         // Reset anonymized state when editing
         if (isAnonymized) {
-            isAnonymized = false;
-            rightPanelTitle.textContent = liveViewEnabled ? "Apercu en direct" : "Resultat";
-            anonymizedText.style.display = "none";
-            resultFooter.style.display = "none";
-            // Also reset the deanon section since the mapping is now stale
-            divider.style.display = "none";
-            deanonRow.style.display = "none";
-            deanonymizedText.style.display = "none";
-            deanonFooter.style.display = "none";
-            llmResponse.value = "";
-            emptyState2.style.display = "flex";
+            resetResultUI();
             endSession();
         }
 
